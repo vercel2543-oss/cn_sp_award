@@ -6,39 +6,57 @@ export interface CompressionResult {
   reductionPercentage: number;
   width: number;
   height: number;
+  fileType: 'image' | 'pdf';
+  fileName: string;
 }
 
+// Recommended maximum PDF size for Firestore base64 storage (1.5 MB)
+export const MAX_PDF_SIZE_BYTES = 1.5 * 1024 * 1024; // 1.5 MB
+export const MAX_PDF_SIZE_LABEL = '1.5 MB';
+
 /**
- * Compresses an image file on the client-side using HTML5 Canvas.
- * Ensures text in certificates remains sharp and legible while saving bandwidth and Drive storage.
+ * Validates and processes a certificate file (Image or PDF).
+ * - For images: Compresses to optimized JPEG ensuring sharp text and minimal storage.
+ * - For PDFs: Checks size limits to save Firebase quota, and converts to Base64 data URL.
  */
-export async function compressImage(
+export async function processCertificateFile(
   file: File,
   maxWidth: number = 1280,
   maxHeight: number = 1280,
   quality: number = 0.75
 ): Promise<CompressionResult> {
-  return new Promise((resolve, reject) => {
-    // If file is PDF, return as is
-    if (file.type === 'application/pdf') {
+  // 1. Handle PDF files
+  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+      throw new Error(
+        `ขนาดไฟล์ PDF เกินกำหนด (${formatBytes(file.size)}) เพื่อประหยัดพื้นที่ Cloud แนะนำให้ใช้ไฟล์ PDF ไม่เกิน ${MAX_PDF_SIZE_LABEL} หรือแปะลิงก์ Google Drive / OneDrive ในช่องลิงก์ภายนอกแทน`
+      );
+    }
+
+    return new Promise((resolve, reject) => {
       const originalSize = file.size;
       const reader = new FileReader();
       reader.onload = (e) => {
+        const dataUrl = (e.target?.result as string) || '';
         resolve({
           file,
-          dataUrl: e.target?.result as string || '',
+          dataUrl,
           originalSize,
           compressedSize: originalSize,
           reductionPercentage: 0,
           width: 0,
-          height: 0
+          height: 0,
+          fileType: 'pdf',
+          fileName: file.name
         });
       };
-      reader.onerror = reject;
+      reader.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์ PDF ได้'));
       reader.readAsDataURL(file);
-      return;
-    }
+    });
+  }
 
+  // 2. Handle Image files with Canvas compression
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
 
@@ -50,7 +68,7 @@ export async function compressImage(
         let { width, height } = img;
 
         // Calculate aspect ratio preserving dimensions
-        const targetMax = 1080;
+        const targetMax = 1200;
         if (width > height) {
           if (width > targetMax) {
             height = Math.round((height * targetMax) / width);
@@ -73,7 +91,7 @@ export async function compressImage(
           return;
         }
 
-        // Draw with high quality interpolation
+        // Draw with high quality interpolation for sharp certificate text
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
@@ -126,7 +144,9 @@ export async function compressImage(
               compressedSize,
               reductionPercentage: reduction,
               width,
-              height
+              height,
+              fileType: 'image',
+              fileName: file.name
             });
           },
           outputMime,
@@ -146,6 +166,18 @@ export async function compressImage(
 }
 
 /**
+ * Backward compatibility alias for compressImage
+ */
+export async function compressImage(
+  file: File,
+  maxWidth: number = 1280,
+  maxHeight: number = 1280,
+  quality: number = 0.75
+): Promise<CompressionResult> {
+  return processCertificateFile(file, maxWidth, maxHeight, quality);
+}
+
+/**
  * Format bytes to readable string (e.g. 1.25 MB)
  */
 export function formatBytes(bytes: number, decimals = 2): string {
@@ -155,4 +187,44 @@ export function formatBytes(bytes: number, decimals = 2): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+export type ExternalUrlType = 'drive' | 'youtube' | 'pdf' | 'facebook' | 'dropbox' | 'onedrive' | 'website';
+
+/**
+ * Detects the type and title of an external URL for badges and icons.
+ */
+export function detectExternalUrlType(url?: string): {
+  type: ExternalUrlType;
+  label: string;
+  bgColor: string;
+  textColor: string;
+  iconType: string;
+} {
+  if (!url) {
+    return { type: 'website', label: 'ลิงก์ภายนอก', bgColor: 'bg-slate-100', textColor: 'text-slate-700', iconType: 'link' };
+  }
+
+  const lowUrl = url.toLowerCase();
+
+  if (lowUrl.includes('drive.google.com') || lowUrl.includes('docs.google.com')) {
+    return { type: 'drive', label: 'Google Drive', bgColor: 'bg-emerald-50 border-emerald-200', textColor: 'text-emerald-700', iconType: 'drive' };
+  }
+  if (lowUrl.includes('youtube.com') || lowUrl.includes('youtu.be')) {
+    return { type: 'youtube', label: 'YouTube Video', bgColor: 'bg-rose-50 border-rose-200', textColor: 'text-rose-700', iconType: 'youtube' };
+  }
+  if (lowUrl.endsWith('.pdf') || lowUrl.includes('.pdf?')) {
+    return { type: 'pdf', label: 'PDF Document', bgColor: 'bg-red-50 border-red-200', textColor: 'text-red-700', iconType: 'pdf' };
+  }
+  if (lowUrl.includes('facebook.com') || lowUrl.includes('fb.watch')) {
+    return { type: 'facebook', label: 'Facebook Post', bgColor: 'bg-blue-50 border-blue-200', textColor: 'text-blue-700', iconType: 'facebook' };
+  }
+  if (lowUrl.includes('onedrive') || lowUrl.includes('sharepoint')) {
+    return { type: 'onedrive', label: 'Microsoft OneDrive', bgColor: 'bg-sky-50 border-sky-200', textColor: 'text-sky-700', iconType: 'cloud' };
+  }
+  if (lowUrl.includes('dropbox.com')) {
+    return { type: 'dropbox', label: 'Dropbox', bgColor: 'bg-indigo-50 border-indigo-200', textColor: 'text-indigo-700', iconType: 'cloud' };
+  }
+
+  return { type: 'website', label: 'เว็บไซต์ / ข้อมูลภายนอก', bgColor: 'bg-blue-50 border-blue-200', textColor: 'text-blue-700', iconType: 'link' };
 }

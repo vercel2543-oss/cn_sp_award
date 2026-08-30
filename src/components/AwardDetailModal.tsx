@@ -20,13 +20,15 @@ import {
   ShieldCheck,
   Eye,
   Info,
-  Loader2
+  Loader2,
+  FileText
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
 import { Award, SystemSettings, DepartmentId } from '../types';
 import { DEPARTMENTS, AWARD_LEVELS, INITIAL_SETTINGS } from '../data/mockData';
 import { downloadAwardImage } from '../lib/exportUtils';
+import { detectExternalUrlType } from '../lib/imageCompressor';
 
 interface AwardDetailModalProps {
   award: Award | null;
@@ -82,6 +84,12 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
   const dept = DEPARTMENTS[award.department];
   const levelInfo = AWARD_LEVELS[award.level];
 
+  const isPdf = award.fileType === 'pdf' || 
+    (award.certificateUrl && (award.certificateUrl.startsWith('data:application/pdf') || award.certificateUrl.toLowerCase().endsWith('.pdf'))) ||
+    (award.imageUrl && (award.imageUrl.startsWith('data:application/pdf') || award.imageUrl.toLowerCase().endsWith('.pdf')));
+
+  const externalLinkInfo = award.externalUrl ? detectExternalUrlType(award.externalUrl) : null;
+
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.25, 0.5));
   const handleRotate = () => setRotation(prev => (prev + 90) % 360);
@@ -112,7 +120,13 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
     window.print();
   };
 
-  const certificateImg = award.imageUrl || 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=1200&auto=format&fit=crop&q=90';
+  const handleOpenExternal = () => {
+    if (award.externalUrl) {
+      window.open(award.externalUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const certificateImg = award.certificateUrl || award.imageUrl || 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=1200&auto=format&fit=crop&q=90';
 
   return (
     <div 
@@ -129,6 +143,12 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
             <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${levelInfo?.badgeBg || 'bg-slate-700'}`}>
               {levelInfo?.name || award.level}
             </span>
+            {isPdf && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white flex items-center gap-1">
+                <FileText className="w-3 h-3" />
+                <span>PDF Document</span>
+              </span>
+            )}
             <span className="text-xs text-slate-300 hidden sm:inline">|</span>
             <span className="text-xs text-slate-300 font-medium hidden sm:inline">
               {dept?.name}
@@ -177,7 +197,7 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
               activeTab === 'certificate' ? 'bg-white text-blue-700 shadow-xs border border-slate-200' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            📜 เกียรติบัตร / รูปภาพต้นฉบับ
+            {isPdf ? '📄 เอกสารเกียรติบัตร (PDF)' : '📜 เกียรติบัตร / รูปภาพต้นฉบับ'}
           </button>
           <button
             onClick={() => setActiveTab('details')}
@@ -204,81 +224,140 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
             <div className="space-y-4">
               {/* Zoom & View Toolbar */}
               <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-slate-100 border border-slate-200">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={handleZoomIn}
-                    title="ซูมเข้า (Zoom In)"
-                    className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 shadow-2xs text-xs flex items-center gap-1 font-medium px-2.5"
-                  >
-                    <ZoomIn className="w-3.5 h-3.5" />
-                    <span>ซูมเข้า</span>
-                  </button>
-                  <button
-                    onClick={handleZoomOut}
-                    title="ซูมออก (Zoom Out)"
-                    className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 shadow-2xs text-xs flex items-center gap-1 font-medium px-2.5"
-                  >
-                    <ZoomOut className="w-3.5 h-3.5" />
-                    <span>ซูมออก</span>
-                  </button>
-                  <button
-                    onClick={handleRotate}
-                    title="หมุน 90 องศา (Rotate)"
-                    className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 shadow-2xs text-xs flex items-center gap-1 font-medium px-2.5"
-                  >
-                    <RotateCw className="w-3.5 h-3.5" />
-                    <span>หมุน</span>
-                  </button>
-                  <button
-                    onClick={handleResetZoom}
-                    title="รีเซ็ตขนาดเดิม"
-                    className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 shadow-2xs text-xs flex items-center gap-1 font-medium px-2.5"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>ขนาดปกติ ({Math.round(zoomLevel * 100)}%)</span>
-                  </button>
-                </div>
+                {!isPdf && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={handleZoomIn}
+                      title="ซูมเข้า (Zoom In)"
+                      className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 shadow-2xs text-xs flex items-center gap-1 font-medium px-2.5"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                      <span>ซูมเข้า</span>
+                    </button>
+                    <button
+                      onClick={handleZoomOut}
+                      title="ซูมออก (Zoom Out)"
+                      className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 shadow-2xs text-xs flex items-center gap-1 font-medium px-2.5"
+                    >
+                      <ZoomOut className="w-3.5 h-3.5" />
+                      <span>ซูมออก</span>
+                    </button>
+                    <button
+                      onClick={handleRotate}
+                      title="หมุน 90 องศา (Rotate)"
+                      className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 shadow-2xs text-xs flex items-center gap-1 font-medium px-2.5"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                      <span>หมุน</span>
+                    </button>
+                    <button
+                      onClick={handleResetZoom}
+                      title="รีเซ็ตขนาดเดิม"
+                      className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 shadow-2xs text-xs flex items-center gap-1 font-medium px-2.5"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>ขนาดปกติ ({Math.round(zoomLevel * 100)}%)</span>
+                    </button>
+                  </div>
+                )}
+
+                {isPdf && (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                    <FileText className="w-4 h-4 text-rose-600" />
+                    <span>เอกสารเกียรติบัตร PDF {award.fileName ? `(${award.fileName})` : ''}</span>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2">
+                  {award.externalUrl && (
+                    <button
+                      onClick={handleOpenExternal}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>เปิดลิงก์ภายนอก (แท็บใหม่) ↗</span>
+                    </button>
+                  )}
+
                   {award.allowDownload !== false && (
-                    <>
-                      <button
-                        onClick={async () => {
-                          try {
-                            setDownloading(true);
-                            const safeName = (award.recipientName || 'ผลงาน').replace(/\s+/g, '_');
-                            const safeTitle = (award.awardName || 'เกียรติบัตร').replace(/\s+/g, '_').slice(0, 30);
-                            await downloadAwardImage(certificateImg, `เกียรติบัตร_${safeName}_${safeTitle}.jpg`);
-                          } finally {
-                            setDownloading(false);
-                          }
-                        }}
-                        disabled={downloading}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold shadow-xs transition-colors"
-                      >
-                        {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                        <span>ดาวน์โหลดภาพเกียรติบัตร</span>
-                      </button>
-                    </>
+                    <button
+                      onClick={async () => {
+                        try {
+                          setDownloading(true);
+                          const safeName = (award.recipientName || 'ผลงาน').replace(/\s+/g, '_');
+                          const safeTitle = (award.awardName || 'เกียรติบัตร').replace(/\s+/g, '_').slice(0, 30);
+                          const ext = isPdf ? 'pdf' : 'jpg';
+                          await downloadAwardImage(certificateImg, `เกียรติบัตร_${safeName}_${safeTitle}.${ext}`, award);
+                        } finally {
+                          setDownloading(false);
+                        }
+                      }}
+                      disabled={downloading}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    >
+                      {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                      <span>{isPdf ? 'ดาวน์โหลดไฟล์ PDF' : 'ดาวน์โหลดภาพเกียรติบัตร'}</span>
+                    </button>
                   )}
                 </div>
               </div>
 
-              {/* Zoomable Image Container */}
-              <div className="relative min-h-[350px] max-h-[550px] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center p-4 border border-slate-800 shadow-inner">
-                <div 
-                  className="transition-transform duration-200 origin-center max-w-full"
-                  style={{
-                    transform: `scale(${zoomLevel}) rotate(${rotation}deg)`
-                  }}
-                >
-                  <img
-                    src={certificateImg}
-                    alt={award.awardName}
-                    className="max-h-[500px] w-auto object-contain rounded-lg shadow-2xl"
-                  />
+              {/* Certificate Media Container */}
+              {isPdf ? (
+                <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 flex flex-col items-center justify-center space-y-4">
+                  <div className="w-full h-[450px] bg-slate-800/80 rounded-xl overflow-hidden border border-slate-700 flex flex-col">
+                    <iframe
+                      src={certificateImg}
+                      title="PDF Certificate"
+                      className="w-full flex-1 border-0"
+                    />
+                  </div>
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => window.open(certificateImg, '_blank')}
+                      className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>เปิดอ่าน PDF เต็มหน้าต่างในแท็บใหม่</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Zoomable Image Container */
+                <div className="relative min-h-[350px] max-h-[550px] bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center p-4 border border-slate-800 shadow-inner">
+                  <div 
+                    className="transition-transform duration-200 origin-center max-w-full"
+                    style={{
+                      transform: `scale(${zoomLevel}) rotate(${rotation}deg)`
+                    }}
+                  >
+                    <img
+                      src={certificateImg}
+                      alt={award.awardName}
+                      className="max-h-[500px] w-auto object-contain rounded-lg shadow-2xl"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* External Link Notice if available */}
+              {award.externalUrl && externalLinkInfo && (
+                <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs text-blue-900">
+                    <ExternalLink className="w-4 h-4 text-blue-600 shrink-0" />
+                    <div>
+                      <span className="font-bold">ลิงก์ผลงานและเอกสารประกอบภายนอก: </span>
+                      <span className="text-slate-600 font-mono text-[11px] break-all">{award.externalUrl}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleOpenExternal}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1 shrink-0 cursor-pointer"
+                  >
+                    <span>เปิดลิงก์ ({externalLinkInfo.label}) ↗</span>
+                  </button>
+                </div>
+              )}
 
               {/* Title & summary beneath viewer */}
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
@@ -314,8 +393,36 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
                   <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">
                     ปีการศึกษา {award.academicYear}
                   </span>
+                  {isPdf && (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>ไฟล์เอกสาร PDF</span>
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {/* External URL Banner in Details Tab */}
+              {award.externalUrl && externalLinkInfo && (
+                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                      <ExternalLink className="w-4 h-4 text-blue-600" />
+                      ลิงก์อ้างอิงภายนอก ({externalLinkInfo.label})
+                    </span>
+                    <p className="text-xs text-slate-600 font-mono mt-0.5 break-all">
+                      {award.externalUrl}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleOpenExternal}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <span>เปิดลิงก์ในแท็บใหม่</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
 
               {/* Information Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -424,20 +531,20 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
                 <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={handleCopyLink}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-xs"
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
                     <span>{copiedLink ? 'คัดลอกลิงก์แล้ว' : 'คัดลอกลิงก์'}</span>
                   </button>
                   <button
                     onClick={handleShareLine}
-                    className="px-4 py-2 bg-[#06C755] hover:bg-[#05b34c] text-white rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-xs"
+                    className="px-4 py-2 bg-[#06C755] hover:bg-[#05b34c] text-white rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <span>แชร์ผ่าน LINE</span>
                   </button>
                   <button
                     onClick={handleShareFacebook}
-                    className="px-4 py-2 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-xs"
+                    className="px-4 py-2 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <span>แชร์ Facebook</span>
                   </button>
@@ -456,7 +563,7 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium transition-colors"
+              className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
             >
               ปิดหน้าต่าง
             </button>

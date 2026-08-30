@@ -44,6 +44,10 @@ export interface Award {
   certificateUrl: string;
   imageUrl?: string;
   imageFileId?: string;
+  fileType?: 'image' | 'pdf'; // Type of attached certificate
+  fileName?: string;
+  fileSize?: number; // bytes
+  externalUrl?: string; // External link e.g. Google Drive, News, Video
   status: AwardStatus;
   featured: boolean;
   allowDownload: boolean;

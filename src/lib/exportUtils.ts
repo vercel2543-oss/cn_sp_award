@@ -102,21 +102,36 @@ export async function downloadAwardImage(
   defaultFilename = 'certificate.jpg',
   awardMetadata?: Partial<Award>
 ): Promise<void> {
-  const sanitizedFilename = (defaultFilename || 'certificate.jpg')
-    .replace(/[\\/:*?"<>|]/g, '_')
-    .trim() || 'certificate.jpg';
+  const isPdf = 
+    imageUrl?.startsWith('data:application/pdf') || 
+    imageUrl?.toLowerCase().endsWith('.pdf') ||
+    awardMetadata?.fileType === 'pdf';
 
-  const finalFilename = sanitizedFilename.endsWith('.jpg') || sanitizedFilename.endsWith('.png') || sanitizedFilename.endsWith('.jpeg')
-    ? sanitizedFilename
-    : `${sanitizedFilename}.jpg`;
+  const defaultExt = isPdf ? '.pdf' : '.jpg';
+
+  let sanitizedFilename = (defaultFilename || `certificate${defaultExt}`)
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .trim() || `certificate${defaultExt}`;
+
+  if (isPdf) {
+    if (!sanitizedFilename.toLowerCase().endsWith('.pdf')) {
+      sanitizedFilename = sanitizedFilename.replace(/\.[^/.]+$/, '') + '.pdf';
+    }
+  } else {
+    if (!sanitizedFilename.endsWith('.jpg') && !sanitizedFilename.endsWith('.png') && !sanitizedFilename.endsWith('.jpeg')) {
+      sanitizedFilename = `${sanitizedFilename}.jpg`;
+    }
+  }
+
+  const finalFilename = sanitizedFilename;
 
   if (!imageUrl) {
     generateAndDownloadCertificateCanvas(awardMetadata, finalFilename);
     return;
   }
 
-  // 1. Data URL (e.g. uploaded base64 image)
-  if (imageUrl.startsWith('data:image/')) {
+  // 1. Data URL (e.g. uploaded base64 image or PDF)
+  if (imageUrl.startsWith('data:')) {
     const a = document.createElement('a');
     a.href = imageUrl;
     a.download = finalFilename;
@@ -145,7 +160,13 @@ export async function downloadAwardImage(
     console.warn('Direct fetch failed, falling back to Canvas draw', err);
   }
 
-  // 3. Fallback: Draw into HTML5 Canvas to create local blob
+  // 3. Fallback for image: Draw into HTML5 Canvas to create local blob
+  if (isPdf) {
+    // If it's a remote PDF that couldn't be fetched via CORS, open in new tab
+    window.open(imageUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
   try {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -218,8 +239,9 @@ export function exportAwardsToCSV(awards: Award[], filename = 'school_awards_rep
     'วันที่ได้รับรางวัล',
     'หน่วยงานผู้จัด',
     'สถานะ',
+    'ประเภทไฟล์',
     'URL เกียรติบัตร',
-    'Google Drive File ID',
+    'ลิงก์ภายนอก (External URL / Drive)',
     'คำอธิบาย',
     'ผู้บันทึก',
     'วันที่บันทึก'
@@ -240,8 +262,9 @@ export function exportAwardsToCSV(awards: Award[], filename = 'school_awards_rep
       award.awardDate || '',
       `"${(award.organizer || '').replace(/"/g, '""')}"`,
       award.status || 'published',
+      award.fileType === 'pdf' ? 'PDF Document' : 'Image',
       `"${award.certificateUrl || ''}"`,
-      award.certificateFileId || '',
+      `"${award.externalUrl || ''}"`,
       `"${(award.description || '').replace(/"/g, '""')}"`,
       `"${(award.createdByName || '').replace(/"/g, '""')}"`,
       award.createdAt || ''

@@ -17,10 +17,14 @@ import {
   Heart,
   Share2,
   Check,
-  ExternalLink
+  ExternalLink,
+  FileText,
+  Video,
+  HardDrive
 } from 'lucide-react';
 import { downloadAwardImage } from '../lib/exportUtils';
 import { toggleLikeAward } from '../lib/storage';
+import { detectExternalUrlType } from '../lib/imageCompressor';
 
 interface AwardCardProps {
   award: Award;
@@ -41,6 +45,12 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
   const [isLikeAnimating, setIsLikeAnimating] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  const isPdf = award.fileType === 'pdf' || 
+    (award.certificateUrl && (award.certificateUrl.startsWith('data:application/pdf') || award.certificateUrl.toLowerCase().endsWith('.pdf'))) ||
+    (award.imageUrl && (award.imageUrl.startsWith('data:application/pdf') || award.imageUrl.toLowerCase().endsWith('.pdf')));
+
+  const externalLinkInfo = award.externalUrl ? detectExternalUrlType(award.externalUrl) : null;
+
   useEffect(() => {
     setLikesCount(award.likesCount || 0);
     setIsLiked(localStorage.getItem(`liked_award_${award.id}`) === 'true');
@@ -54,9 +64,17 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
       setDownloading(true);
       const safeName = (award.recipientName || 'ผลงาน').replace(/\s+/g, '_');
       const safeTitle = (award.awardName || 'เกียรติบัตร').replace(/\s+/g, '_').slice(0, 30);
-      await downloadAwardImage(downloadUrl, `เกียรติบัตร_${safeName}_${safeTitle}.jpg`, award);
+      const ext = isPdf ? 'pdf' : 'jpg';
+      await downloadAwardImage(downloadUrl, `เกียรติบัตร_${safeName}_${safeTitle}.${ext}`, award);
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleOpenExternalUrl = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (award.externalUrl) {
+      window.open(award.externalUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -110,22 +128,40 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
       className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-xl hover:border-blue-400/80 transition-all duration-300 overflow-hidden flex flex-col justify-between group cursor-pointer"
     >
       {/* Thumbnail Banner */}
-      <div className="relative h-48 sm:h-52 w-full bg-slate-100 overflow-hidden">
-        <img
-          src={award.imageUrl || 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=600&auto=format&fit=crop&q=80'}
-          alt={award.awardName}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
-        />
+      <div className="relative h-48 sm:h-52 w-full bg-slate-900 overflow-hidden">
+        {isPdf ? (
+          <div className="w-full h-full bg-linear-to-br from-slate-900 via-slate-800 to-rose-950 flex flex-col items-center justify-center p-6 text-center group-hover:scale-105 transition-transform duration-500">
+            <div className="w-14 h-14 rounded-2xl bg-rose-600/90 text-white flex items-center justify-center shadow-lg mb-2">
+              <FileText className="w-7 h-7" />
+            </div>
+            <span className="text-xs font-bold text-white tracking-wide">เอกสารเกียรติบัตร PDF</span>
+            <span className="text-[10px] text-slate-300 mt-0.5 line-clamp-1 max-w-[200px]">
+              {award.fileName || 'คลิกเพื่อเปิดอ่านไฟล์ฉบับเต็ม'}
+            </span>
+          </div>
+        ) : (
+          <img
+            src={award.imageUrl || 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=600&auto=format&fit=crop&q=80'}
+            alt={award.awardName}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/85 via-slate-900/20 to-transparent"></div>
 
         {/* Level Badge (Top Left) */}
-        <div className="absolute top-3 left-3">
+        <div className="absolute top-3 left-3 flex items-center gap-1.5">
           <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${levelInfo?.badgeBg || 'bg-slate-700 text-white'} flex items-center gap-1 shadow-xs`}>
             {award.level === 'international' && <Globe2 className="w-3 h-3 text-amber-300" />}
             {award.level === 'national' && <Star className="w-3 h-3 text-rose-200 fill-rose-200" />}
             {levelInfo?.name || award.level}
           </span>
+          {isPdf && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white shadow-xs flex items-center gap-1">
+              <FileText className="w-3 h-3" />
+              <span>PDF</span>
+            </span>
+          )}
         </div>
 
         {/* Top Right: Actions & Badges */}
@@ -134,7 +170,7 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
             <button
               onClick={handleDirectDownload}
               disabled={downloading}
-              title="ดาวน์โหลดเกียรติบัตร / รูปผลงาน"
+              title={isPdf ? "ดาวน์โหลดไฟล์ PDF" : "ดาวน์โหลดเกียรติบัตร / รูปผลงาน"}
               className="p-1.5 rounded-lg bg-black/60 hover:bg-blue-600 text-white backdrop-blur-xs transition-colors shadow-xs flex items-center justify-center cursor-pointer"
             >
               {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-200" /> : <Download className="w-3.5 h-3.5" />}
@@ -159,7 +195,7 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
         </div>
 
         {/* Award Date (Bottom Right) */}
-        <div className="absolute bottom-2.5 right-3 text-[11px] text-slate-200">
+        <div className="absolute bottom-2.5 right-3 text-[11px] text-slate-200 font-medium">
           {award.awardDate}
         </div>
       </div>
@@ -185,6 +221,26 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
           <p className="text-xs text-slate-500 mt-2 line-clamp-2 font-normal leading-relaxed">
             {award.description}
           </p>
+
+          {/* External URL Quick Button on Card (if available) */}
+          {award.externalUrl && externalLinkInfo && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={handleOpenExternalUrl}
+                title={`เปิดลิงก์ภายนอก: ${award.externalUrl}`}
+                className="w-full py-1.5 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-semibold flex items-center justify-between transition-all group/btn cursor-pointer shadow-2xs hover:shadow-xs"
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span className="truncate">{externalLinkInfo.label}</span>
+                </div>
+                <span className="text-[10px] font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded group-hover/btn:bg-blue-700 shrink-0 flex items-center gap-0.5">
+                  เปิดแท็บใหม่ ↗
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Social Engagement Bar (Like & Social Share buttons) */}
@@ -259,14 +315,14 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
                   onClick={handleDirectDownload}
                   disabled={downloading}
                   className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 disabled:opacity-50 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                  title="ดาวน์โหลดไฟล์ภาพเกียรติบัตรทันที"
+                  title={isPdf ? "ดาวน์โหลดไฟล์ PDF ทันที" : "ดาวน์โหลดไฟล์ภาพเกียรติบัตรทันที"}
                 >
                   {downloading ? (
                     <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
                   ) : (
                     <Download className="w-3 h-3 text-blue-600" />
                   )}
-                  <span>ดาวน์โหลด</span>
+                  <span>{isPdf ? 'โหลด PDF' : 'ดาวน์โหลด'}</span>
                 </button>
               )}
 
