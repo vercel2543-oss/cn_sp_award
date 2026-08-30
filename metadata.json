@@ -1,0 +1,8 @@
+{
+  "name": "ฐานข้อมูลใหม่ ระบบจัดเก็บผลงานและรางวัลของโรงเรียน",
+  "description": "ระบบจัดเก็บและเผยแพร่ผลงาน รางวัล และเกียรติบัตรของโรงเรียน แยกตาม 5 ฝ่ายหลัก พร้อมแดชบอร์ด จัดการผู้ใช้ และเชื่อมต่อฐานข้อมูล Firebase Firestore",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
