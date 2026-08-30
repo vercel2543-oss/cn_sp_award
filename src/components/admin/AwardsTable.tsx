@@ -22,6 +22,7 @@ import {
 import { Award, AppUser, DepartmentId, AwardLevel, AwardStatus } from '../../types';
 import { DEPARTMENTS, AWARD_LEVELS } from '../../data/mockData';
 import { exportAwardsToCSV, downloadAwardImage } from '../../lib/exportUtils';
+import { formatThaiDate, formatThaiDateFull } from '../../lib/dateUtils';
 
 interface AwardsTableProps {
   currentUser: AppUser;
@@ -285,6 +286,28 @@ export const AwardsTable: React.FC<AwardsTableProps> = ({
                         >
                           {award.awardName}
                         </span>
+                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                          {award.awardDate && (
+                            <span 
+                              className="text-[11px] text-slate-500 font-normal"
+                              title={formatThaiDateFull(award.awardDate)}
+                            >
+                              🗓️ {formatThaiDate(award.awardDate, true)}
+                            </span>
+                          )}
+                          {award.externalUrl && (
+                            <a
+                              href={award.externalUrl.startsWith('http') ? award.externalUrl : `https://${award.externalUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium hover:underline"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>ลิงก์ภายนอก ↗</span>
+                            </a>
+                          )}
+                        </div>
                       </td>
 
                       {/* Recipient */}

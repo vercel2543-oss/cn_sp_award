@@ -1,5 +1,6 @@
 import { Award, SystemSettings } from '../types';
 import { DEPARTMENTS, AWARD_LEVELS } from '../data/mockData';
+import { formatThaiDateFull, formatThaiDate, formatThaiDateTime } from './dateUtils';
 
 /**
  * Generates an elegant fallback digital certificate canvas and downloads it.
@@ -70,7 +71,7 @@ function generateAndDownloadCertificateCanvas(awardData: Partial<Award> | undefi
     // Footer lines
     ctx.fillStyle = '#64748b';
     ctx.font = '22px "Prompt", "Sarabun", sans-serif';
-    ctx.fillText(`ให้ไว้ ณ วันที่ ${awardData?.awardDate || new Date().toLocaleDateString('th-TH')}`, 800, 930);
+    ctx.fillText(`ให้ไว้ ณ ${formatThaiDateFull(awardData?.awardDate || new Date())}`, 800, 930);
 
     ctx.fillStyle = '#047857';
     ctx.font = 'bold 24px "Prompt", "Sarabun", sans-serif';
@@ -259,7 +260,7 @@ export function exportAwardsToCSV(awards: Award[], filename = 'school_awards_rep
       deptName,
       levelName,
       award.academicYear || '',
-      award.awardDate || '',
+      formatThaiDate(award.awardDate, true),
       `"${(award.organizer || '').replace(/"/g, '""')}"`,
       award.status || 'published',
       award.fileType === 'pdf' ? 'PDF Document' : 'Image',
@@ -267,7 +268,7 @@ export function exportAwardsToCSV(awards: Award[], filename = 'school_awards_rep
       `"${award.externalUrl || ''}"`,
       `"${(award.description || '').replace(/"/g, '""')}"`,
       `"${(award.createdByName || '').replace(/"/g, '""')}"`,
-      award.createdAt || ''
+      formatThaiDateTime(award.createdAt)
     ];
   });
 

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { ActivityLog, AppUser, DepartmentId } from '../../types';
 import { DEPARTMENTS } from '../../data/mockData';
+import { formatThaiDateTime } from '../../lib/dateUtils';
 
 interface ActivityLogViewProps {
   logs: ActivityLog[];
@@ -159,8 +160,11 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = ({ logs, currentU
 
                   return (
                     <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                        {log.timestamp.replace('T', ' ').slice(0, 16)}
+                      <td 
+                        className="py-3.5 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap"
+                        title={formatThaiDateTime(log.timestamp, true)}
+                      >
+                        {formatThaiDateTime(log.timestamp)}
                       </td>
                       <td className="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap">
                         {log.userName}

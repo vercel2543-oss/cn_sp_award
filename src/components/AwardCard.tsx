@@ -25,6 +25,7 @@ import {
 import { downloadAwardImage } from '../lib/exportUtils';
 import { toggleLikeAward } from '../lib/storage';
 import { detectExternalUrlType } from '../lib/imageCompressor';
+import { formatThaiDate, formatThaiDateFull } from '../lib/dateUtils';
 
 interface AwardCardProps {
   award: Award;
@@ -49,7 +50,8 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
     (award.certificateUrl && (award.certificateUrl.startsWith('data:application/pdf') || award.certificateUrl.toLowerCase().endsWith('.pdf'))) ||
     (award.imageUrl && (award.imageUrl.startsWith('data:application/pdf') || award.imageUrl.toLowerCase().endsWith('.pdf')));
 
-  const externalLinkInfo = award.externalUrl ? detectExternalUrlType(award.externalUrl) : null;
+  const hasExternalUrl = Boolean(award.externalUrl && award.externalUrl.trim());
+  const externalLinkInfo = hasExternalUrl ? detectExternalUrlType(award.externalUrl!) : null;
 
   useEffect(() => {
     setLikesCount(award.likesCount || 0);
@@ -73,8 +75,20 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
 
   const handleOpenExternalUrl = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (award.externalUrl) {
-      window.open(award.externalUrl, '_blank', 'noopener,noreferrer');
+    if (award.externalUrl && award.externalUrl.trim()) {
+      let targetUrl = award.externalUrl.trim();
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        targetUrl = `https://${targetUrl}`;
+      }
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleOpenFileNewTab = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const fileUrl = award.certificateUrl || award.imageUrl;
+    if (fileUrl) {
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -165,7 +179,7 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
         </div>
 
         {/* Top Right: Actions & Badges */}
-        <div className="absolute top-3 right-3 flex items-center gap-1.5">
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
           {award.allowDownload !== false && (
             <button
               onClick={handleDirectDownload}
@@ -195,8 +209,11 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
         </div>
 
         {/* Award Date (Bottom Right) */}
-        <div className="absolute bottom-2.5 right-3 text-[11px] text-slate-200 font-medium">
-          {award.awardDate}
+        <div 
+          className="absolute bottom-2.5 right-3 text-[11px] text-slate-200 font-medium drop-shadow-xs"
+          title={formatThaiDateFull(award.awardDate)}
+        >
+          {formatThaiDate(award.awardDate, true)}
         </div>
       </div>
 
@@ -222,20 +239,29 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
             {award.description}
           </p>
 
-          {/* External URL Quick Button on Card (if available) */}
-          {award.externalUrl && externalLinkInfo && (
+          {/* External URL Quick Button on Card (shows ONLY when externalUrl in Section 3 is filled) */}
+          {hasExternalUrl && (
             <div className="mt-3">
               <button
                 type="button"
                 onClick={handleOpenExternalUrl}
-                title={`เปิดลิงก์ภายนอก: ${award.externalUrl}`}
-                className="w-full py-1.5 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-semibold flex items-center justify-between transition-all group/btn cursor-pointer shadow-2xs hover:shadow-xs"
+                title={`เปิดลิงก์ภายนอก (จากหัวข้อที่ 3): ${award.externalUrl}`}
+                className="w-full py-2 px-3 rounded-xl bg-linear-to-r from-blue-50 via-indigo-50 to-sky-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 text-blue-800 text-xs font-semibold flex items-center justify-between transition-all group/btn cursor-pointer shadow-2xs hover:shadow-xs"
               >
-                <div className="flex items-center gap-1.5 truncate">
-                  <ExternalLink className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span className="truncate">{externalLinkInfo.label}</span>
+                <div className="flex items-center gap-2 truncate pr-2">
+                  <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="text-left truncate">
+                    <span className="font-bold text-slate-800 block truncate text-xs">
+                      {externalLinkInfo?.label || 'ลิงก์ภายนอก / เอกสารแนบ'}
+                    </span>
+                    <span className="text-[10px] text-blue-600 block truncate font-mono">
+                      {award.externalUrl}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-[10px] font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded group-hover/btn:bg-blue-700 shrink-0 flex items-center gap-0.5">
+                <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-1 rounded-lg group-hover/btn:bg-blue-700 shrink-0 flex items-center gap-1 shadow-2xs">
                   เปิดแท็บใหม่ ↗
                 </span>
               </button>
@@ -302,19 +328,32 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
             </div>
           </div>
 
-          {/* Row 2: Views Count & Details / Direct Download */}
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+          {/* Row 2: Views Count & Details / External URL / Direct Download */}
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs flex-wrap gap-2">
             <div className="flex items-center gap-1 text-slate-400">
               <Eye className="w-3.5 h-3.5" />
               <span>{award.viewsCount || 100} ครั้ง</span>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Quick External Link button in bottom row (only when Section 3 has a link) */}
+              {hasExternalUrl && (
+                <button
+                  type="button"
+                  onClick={handleOpenExternalUrl}
+                  title={`เปิดลิงก์ภายนอก (หัวข้อที่ 3): ${award.externalUrl}`}
+                  className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold flex items-center gap-1 border border-blue-200 transition-colors cursor-pointer shadow-2xs"
+                >
+                  <ExternalLink className="w-3 h-3 text-blue-600" />
+                  <span>ลิงก์ภายนอก ↗</span>
+                </button>
+              )}
+
               {award.allowDownload !== false && (
                 <button
                   onClick={handleDirectDownload}
                   disabled={downloading}
-                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 disabled:opacity-50 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 disabled:opacity-50 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                   title={isPdf ? "ดาวน์โหลดไฟล์ PDF ทันที" : "ดาวน์โหลดไฟล์ภาพเกียรติบัตรทันที"}
                 >
                   {downloading ? (
@@ -326,7 +365,7 @@ export const AwardCard: React.FC<AwardCardProps> = ({ award, onSelectAward, onLi
                 </button>
               )}
 
-              <span className="text-[11px] font-bold text-blue-600 group-hover:text-blue-800 flex items-center gap-0.5">
+              <span className="text-[11px] font-bold text-blue-600 group-hover:text-blue-800 flex items-center gap-0.5 ml-0.5">
                 ดูรายละเอียด
               </span>
             </div>

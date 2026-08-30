@@ -2,6 +2,7 @@ import React from 'react';
 import { Trophy, Star, Sparkles, ExternalLink, Globe2, ChevronRight, Award as AwardIcon } from 'lucide-react';
 import { Award } from '../types';
 import { DEPARTMENTS, AWARD_LEVELS } from '../data/mockData';
+import { formatThaiDate, formatThaiDateFull } from '../lib/dateUtils';
 
 interface HallOfFameProps {
   awards: Award[];
@@ -91,7 +92,12 @@ export const HallOfFame: React.FC<HallOfFameProps> = ({ awards, onSelectAward })
                     <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-white/20 backdrop-blur-md">
                       {dept?.shortName || award.department}
                     </span>
-                    <span className="text-[11px] text-slate-200">{award.awardDate}</span>
+                    <span 
+                      className="text-[11px] text-slate-200 drop-shadow-xs"
+                      title={formatThaiDateFull(award.awardDate)}
+                    >
+                      {formatThaiDate(award.awardDate, true)}
+                    </span>
                   </div>
                 </div>
 

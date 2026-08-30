@@ -29,6 +29,7 @@ import { Award, SystemSettings, DepartmentId } from '../types';
 import { DEPARTMENTS, AWARD_LEVELS, INITIAL_SETTINGS } from '../data/mockData';
 import { downloadAwardImage } from '../lib/exportUtils';
 import { detectExternalUrlType } from '../lib/imageCompressor';
+import { formatThaiDateFull, formatThaiDateTime, formatThaiDate } from '../lib/dateUtils';
 
 interface AwardDetailModalProps {
   award: Award | null;
@@ -121,8 +122,12 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
   };
 
   const handleOpenExternal = () => {
-    if (award.externalUrl) {
-      window.open(award.externalUrl, '_blank', 'noopener,noreferrer');
+    if (award.externalUrl && award.externalUrl.trim()) {
+      let targetUrl = award.externalUrl.trim();
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        targetUrl = `https://${targetUrl}`;
+      }
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -449,7 +454,7 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
                       <Calendar className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
                       <div>
                         <p className="text-xs text-slate-500">วันที่ได้รับรางวัล</p>
-                        <p className="font-semibold text-slate-900">{award.awardDate}</p>
+                        <p className="font-semibold text-slate-900">{formatThaiDateFull(award.awardDate)}</p>
                       </div>
                     </div>
                   </div>
@@ -473,7 +478,7 @@ export const AwardDetailModal: React.FC<AwardDetailModalProps> = ({
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">วันที่บันทึกเข้าระบบ</p>
-                      <p className="font-medium text-slate-800 text-xs">{award.createdAt?.slice(0, 10) || '-'}</p>
+                      <p className="font-medium text-slate-800 text-xs">{formatThaiDateTime(award.createdAt) || formatThaiDate(award.createdAt, true) || '-'}</p>
                     </div>
                   </div>
                 </div>

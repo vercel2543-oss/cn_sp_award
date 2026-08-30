@@ -34,6 +34,7 @@ import {
   MAX_PDF_SIZE_BYTES,
   MAX_PDF_SIZE_LABEL 
 } from '../../lib/imageCompressor';
+import { formatThaiDateFull } from '../../lib/dateUtils';
 
 interface AwardFormModalProps {
   isOpen: boolean;
@@ -413,6 +414,12 @@ export const AwardFormModal: React.FC<AwardFormModalProps> = ({
                   onChange={(e) => setAwardDate(e.target.value)}
                   className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none"
                 />
+                {awardDate && (
+                  <p className="text-[11px] text-blue-700 font-medium mt-1 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-blue-600" />
+                    <span>{formatThaiDateFull(awardDate)}</span>
+                  </p>
+                )}
               </div>
             </div>
 

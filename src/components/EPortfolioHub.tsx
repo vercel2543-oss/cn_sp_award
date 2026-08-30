@@ -23,6 +23,7 @@ import {
 import { Award, DepartmentId, SystemSettings } from '../types';
 import { DEPARTMENTS, AWARD_LEVELS, INITIAL_SETTINGS } from '../data/mockData';
 import { downloadAwardImage } from '../lib/exportUtils';
+import { formatThaiDate, formatThaiDateFull } from '../lib/dateUtils';
 
 interface EPortfolioHubProps {
   awards: Award[];
@@ -402,8 +403,11 @@ export const EPortfolioHub: React.FC<EPortfolioHubProps> = ({
                               <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
                                 ปี {award.academicYear}
                               </span>
-                              <span className="text-[10px] font-medium text-slate-500">
-                                {award.awardDate}
+                              <span 
+                                className="text-[10px] font-medium text-slate-500"
+                                title={formatThaiDateFull(award.awardDate)}
+                              >
+                                {formatThaiDate(award.awardDate, true)}
                               </span>
                             </div>
                             <h5 className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">

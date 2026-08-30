@@ -14,6 +14,7 @@ import {
 import { Award, AppUser, DepartmentId, AwardLevel, SystemSettings } from '../../types';
 import { DEPARTMENTS, AWARD_LEVELS, INITIAL_ACADEMIC_YEARS, INITIAL_SETTINGS } from '../../data/mockData';
 import { exportAwardsToCSV, triggerPrint } from '../../lib/exportUtils';
+import { formatThaiDateFull, formatThaiDate } from '../../lib/dateUtils';
 
 interface ReportsExportViewProps {
   awards: Award[];
@@ -194,8 +195,8 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({
           <p className="text-xs text-slate-600">
             {selectedDept === 'all' ? 'ข้อมูลรวมทั้ง 5 ฝ่ายหลัก' : `ฝ่าย: ${DEPARTMENTS[selectedDept]?.name}`} | {selectedYear === 'all' ? 'ข้อมูลสะสมทุกปีการศึกษา' : `ปีการศึกษา ${selectedYear}`}
           </p>
-          <p className="text-[11px] text-slate-400">
-            วันที่พิมพ์เอกสาร: {new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
+          <p className="text-[11px] text-slate-500 font-medium">
+            วันที่พิมพ์เอกสาร: {formatThaiDateFull(new Date())}
           </p>
         </div>
 
