@@ -15,7 +15,8 @@ import {
   ChevronDown, 
   ShieldCheck, 
   Info,
-  Award as AwardIcon
+  Award as AwardIcon,
+  Cloud
 } from 'lucide-react';
 import { AppUser, DepartmentId, SystemSettings } from '../types';
 import { DEPARTMENTS } from '../data/mockData';
@@ -94,7 +95,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden sm:inline text-slate-400">| {settings?.schoolMotto || 'คลังผลงานและรางวัล'}</span>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <span className="text-slate-400 text-xs hidden md:inline">ระบบจัดเก็บและเผยแพร่ผลงานรางวัล</span>
+            <span className="text-emerald-400 text-xs hidden md:flex items-center gap-1 font-medium">
+              <Cloud className="w-3.5 h-3.5" />
+              <span>Cloud Firestore Real-time</span>
+            </span>
             {currentUser && (
               <span className="bg-indigo-900/80 text-indigo-200 px-2 py-0.5 rounded text-[11px] font-medium flex items-center gap-1 border border-indigo-700/50">
                 <ShieldCheck className="w-3 h-3 text-indigo-300" />

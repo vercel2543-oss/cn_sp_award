@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Trophy, 
   Globe2, 
@@ -14,10 +14,14 @@ import {
   Building2,
   Sparkles,
   GraduationCap,
-  Coins
+  Coins,
+  Cloud,
+  RefreshCw,
+  Database
 } from 'lucide-react';
 import { Award, AppUser, DepartmentId } from '../../types';
 import { DEPARTMENTS, AWARD_LEVELS } from '../../data/mockData';
+import { refreshFromCloud } from '../../lib/storage';
 
 interface AdminDashboardProps {
   currentUser: AppUser;
@@ -32,7 +36,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSelectAward,
   onNavigateTab
 }) => {
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState(false);
   const isSuperAdmin = currentUser.role === 'super_admin';
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await refreshFromCloud();
+      setSyncSuccess(true);
+      setTimeout(() => setSyncSuccess(false), 3000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   
   // Filter awards based on user role
   const userAwards = isSuperAdmin 
@@ -78,7 +97,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs sm:text-sm font-semibold border border-slate-700 transition-colors shadow-xs"
+            title="ดึงข้อมูลล่าสุดจาก Firebase Firestore เพื่อให้ตรงกับทุกเครื่อง"
+          >
+            <RefreshCw className={`w-4 h-4 text-emerald-400 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'กำลังซิงค์ Cloud...' : syncSuccess ? 'ซิงค์เรียบร้อย!' : 'ซิงค์ข้อมูล Cloud'}</span>
+          </button>
+
           <button
             onClick={() => onNavigateTab('add_award')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors"
@@ -86,6 +115,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <PlusCircle className="w-4 h-4" />
             <span>บันทึกผลงานใหม่</span>
           </button>
+        </div>
+      </div>
+
+      {/* Cloud Sync Status Alert */}
+      <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="text-xs font-semibold text-emerald-950 flex items-center gap-1.5">
+            <Cloud className="w-4 h-4 text-emerald-600" />
+            เชื่อมต่อ Cloud Database (Firebase Firestore)
+          </span>
+          <span className="hidden md:inline text-xs text-emerald-700">| ข้อมูล รางวัล และรูปภาพ เชื่อมต่อแบบ Real-time ตรงกันทุกอุปกรณ์ (iOS, Android, PC, Notebook, Incognito)</span>
+        </div>
+        <div className="flex items-center gap-2 text-[11px] text-emerald-800 font-medium">
+          <Database className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Database ID: ai-studio-5d1a61f5...</span>
         </div>
       </div>
 

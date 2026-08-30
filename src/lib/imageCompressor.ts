@@ -50,15 +50,16 @@ export async function compressImage(
         let { width, height } = img;
 
         // Calculate aspect ratio preserving dimensions
+        const targetMax = 1080;
         if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
+          if (width > targetMax) {
+            height = Math.round((height * targetMax) / width);
+            width = targetMax;
           }
         } else {
-          if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
+          if (height > targetMax) {
+            width = Math.round((width * targetMax) / height);
+            height = targetMax;
           }
         }
 
@@ -79,13 +80,27 @@ export async function compressImage(
 
         // Standardize output to high-compression JPEG
         const outputMime = 'image/jpeg';
-        let outputQuality = quality;
+        let outputQuality = quality || 0.75;
         let dataUrl = canvas.toDataURL(outputMime, outputQuality);
 
-        // If still large (>300KB), reduce quality slightly to guarantee fits inside Firestore limit and localStorage
-        if (dataUrl.length > 400000) {
-          outputQuality = 0.65;
+        // Progressive size reduction to guarantee base64 string safely stays under 250KB for Firestore
+        if (dataUrl.length > 300000) {
+          outputQuality = 0.6;
           dataUrl = canvas.toDataURL(outputMime, outputQuality);
+        }
+        if (dataUrl.length > 300000) {
+          // If still over 300k chars, scale canvas down to 800px max
+          const scale = 800 / Math.max(width, height);
+          const scaledCanvas = document.createElement('canvas');
+          scaledCanvas.width = Math.round(width * scale);
+          scaledCanvas.height = Math.round(height * scale);
+          const sCtx = scaledCanvas.getContext('2d');
+          if (sCtx) {
+            sCtx.imageSmoothingEnabled = true;
+            sCtx.imageSmoothingQuality = 'high';
+            sCtx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+            dataUrl = scaledCanvas.toDataURL(outputMime, 0.65);
+          }
         }
 
         canvas.toBlob(

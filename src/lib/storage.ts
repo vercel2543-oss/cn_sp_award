@@ -589,3 +589,67 @@ export const getAwards = getStoredAwards;
 export const getUsers = getStoredUsers;
 export const getActivityLogs = getStoredLogs;
 export const getSystemSettings = getStoredSettings;
+
+/**
+ * Explicitly force pull all data from Cloud Firestore across all devices
+ */
+export async function refreshFromCloud(): Promise<{ 
+  awards: Award[]; 
+  settings: SystemSettings; 
+  users: AppUser[]; 
+  logs: ActivityLog[] 
+}> {
+  try {
+    const awardsSnap = await getDocs(collection(db, 'awards'));
+    const awardsList: Award[] = [];
+    awardsSnap.forEach((d) => {
+      const data = d.data() as Award;
+      if (data && data.id) awardsList.push(data);
+    });
+    if (awardsList.length > 0) {
+      saveStoredAwards(awardsList);
+    }
+
+    const settingsDoc = await getDoc(doc(db, 'settings', 'system'));
+    let currentSettings = INITIAL_SETTINGS;
+    if (settingsDoc.exists()) {
+      currentSettings = { ...INITIAL_SETTINGS, ...(settingsDoc.data() as SystemSettings) };
+      saveStoredSettings(currentSettings);
+    }
+
+    const usersSnap = await getDocs(collection(db, 'users'));
+    const usersList: AppUser[] = [];
+    usersSnap.forEach((d) => {
+      const data = d.data() as AppUser;
+      if (data && data.uid) usersList.push(data);
+    });
+    if (usersList.length > 0) {
+      saveStoredUsers(usersList);
+    }
+
+    const logsSnap = await getDocs(collection(db, 'activityLogs'));
+    const logsList: ActivityLog[] = [];
+    logsSnap.forEach((d) => {
+      logsList.push(d.data() as ActivityLog);
+    });
+    logsList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    if (logsList.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logsList));
+    }
+
+    return {
+      awards: awardsList.length > 0 ? awardsList : getStoredAwards(),
+      settings: currentSettings,
+      users: usersList.length > 0 ? usersList : getStoredUsers(),
+      logs: logsList.length > 0 ? logsList : getStoredLogs()
+    };
+  } catch (err) {
+    console.error('Error refreshing from cloud:', err);
+    return {
+      awards: getStoredAwards(),
+      settings: getStoredSettings(),
+      users: getStoredUsers(),
+      logs: getStoredLogs()
+    };
+  }
+}
