@@ -9,6 +9,7 @@ import {
   getUsers, 
   saveUser, 
   updateUser, 
+  deleteUser,
   getActivityLogs, 
   logActivity,
   subscribeToAwards,
@@ -213,7 +214,8 @@ export function App() {
   };
 
   const handleQuickSwitchUser = (username: string) => {
-    const target = INITIAL_USERS.find(u => u.username === username);
+    const userList = users && users.length > 0 ? users : INITIAL_USERS;
+    const target = userList.find(u => u.username === username);
     if (target) {
       setCurrentUser(target);
     }
@@ -349,32 +351,53 @@ export function App() {
   };
 
   // User Management Handlers (Super Admin)
-  const handleAddUser = (newUser: AppUser) => {
-    saveUser(newUser);
+  const handleAddUser = async (newUser: AppUser) => {
+    await saveUser(newUser);
     setUsers(getUsers());
-    logActivity({
+    await logActivity({
       userId: currentUser?.uid || 'system',
       userName: currentUser?.displayName || 'Super Admin',
       userRole: 'super_admin',
       department: 'all',
       action: 'create',
-      details: `สร้างบัญชีผู้ใช้ใหม่: ${newUser.displayName} (${newUser.role})`
+      details: `สร้างบัญชีผู้ใช้ใหม่: ${newUser.displayName} (@${newUser.username})`
     });
     setLogs(getActivityLogs());
   };
 
-  const handleUpdateUser = (updatedUser: AppUser) => {
-    updateUser(updatedUser);
+  const handleUpdateUser = async (updatedUser: AppUser) => {
+    await updateUser(updatedUser);
     setUsers(getUsers());
-    logActivity({
+    // If current logged in user was updated, update currentUser state too
+    if (currentUser && currentUser.uid === updatedUser.uid) {
+      setCurrentUser(updatedUser);
+    }
+    await logActivity({
       userId: currentUser?.uid || 'system',
       userName: currentUser?.displayName || 'Super Admin',
       userRole: 'super_admin',
       department: 'all',
       action: 'update',
-      details: `อัปเดตข้อมูลผู้ใช้: ${updatedUser.displayName}`
+      details: `อัปเดตข้อมูลผู้ใช้: ${updatedUser.displayName} (@${updatedUser.username})`
     });
     setLogs(getActivityLogs());
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    const target = users.find(u => u.uid === userId);
+    await deleteUser(userId);
+    setUsers(getUsers());
+    if (target) {
+      await logActivity({
+        userId: currentUser?.uid || 'system',
+        userName: currentUser?.displayName || 'Super Admin',
+        userRole: 'super_admin',
+        department: 'all',
+        action: 'delete',
+        details: `ลบบัญชีผู้ใช้งาน: ${target.displayName} (@${target.username})`
+      });
+      setLogs(getActivityLogs());
+    }
   };
 
   // Settings Handler
@@ -459,6 +482,7 @@ export function App() {
             users={users}
             onAddUser={handleAddUser}
             onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser}
           />
         )}
 
@@ -650,6 +674,8 @@ export function App() {
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         onLogin={handleLogin}
+        users={users}
+        settings={settings}
       />
     </div>
   );

@@ -22,10 +22,11 @@ interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLogin: (user: AppUser) => void;
+  users?: AppUser[];
   settings?: SystemSettings;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin, settings }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin, users = [], settings }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -34,6 +35,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
   if (!isOpen) return null;
 
   const showDemoLogin = settings?.enableDemoLogin !== false;
+  const currentUsers = users && users.length > 0 ? users : INITIAL_USERS;
+  const superAdminUser = currentUsers.find(u => u.role === 'super_admin') || INITIAL_USERS[0];
+  const deptAdmins = currentUsers.filter(u => u.role !== 'super_admin' && u.status === 'active');
 
   const handleGoogleLogin = async () => {
     try {
@@ -68,17 +72,44 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
     e.preventDefault();
     setError('');
 
-    const found = INITIAL_USERS.find(
-      u => u.username.toLowerCase() === username.trim().toLowerCase() || 
-           u.email.toLowerCase() === username.trim().toLowerCase()
+    const inputUser = username.trim().toLowerCase();
+    const inputPass = password.trim();
+
+    if (!inputUser) {
+      setError('กรุณาระบุชื่อผู้ใช้งานหรืออีเมล');
+      return;
+    }
+
+    if (!inputPass) {
+      setError('กรุณาระบุรหัสผ่าน');
+      return;
+    }
+
+    // Find in dynamic users list (synced from Cloud Firestore & Local Storage)
+    const found = currentUsers.find(
+      u => u.username.toLowerCase() === inputUser || 
+           u.email.toLowerCase() === inputUser
     );
 
-    if (found) {
-      onLogin(found);
-      onClose();
-    } else {
+    if (!found) {
       setError('ไม่พบบัญชีผู้ใช้นี้ กรุณาตรวจสอบชื่อผู้ใช้หรืออีเมล');
+      return;
     }
+
+    if (found.status === 'inactive') {
+      setError('บัญชีผู้ใช้นี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบสูงสุด (Super Admin)');
+      return;
+    }
+
+    // Check password (supports custom configured password or default admin1234)
+    const expectedPassword = found.password || 'admin1234';
+    if (inputPass !== expectedPassword) {
+      setError('รหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบรหัสผ่านอีกครั้ง');
+      return;
+    }
+
+    onLogin(found);
+    onClose();
   };
 
   const handleSelectQuickAccount = (user: AppUser) => {
@@ -135,49 +166,51 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
 
               <div className="space-y-2">
                 {/* Super Admin */}
-                <button
-                  id="login-quick-super-admin"
-                  onClick={() => handleSelectQuickAccount(INITIAL_USERS[0])}
-                  className="w-full text-left p-3 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/80 transition-all flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                      SA
+                {superAdminUser && (
+                  <button
+                    id="login-quick-super-admin"
+                    onClick={() => handleSelectQuickAccount(superAdminUser)}
+                    className="w-full text-left p-3 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/80 transition-all flex items-center justify-between group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                        SA
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 text-xs sm:text-sm">
+                          {superAdminUser.displayName}
+                        </p>
+                        <p className="text-[11px] text-indigo-700">
+                          @{superAdminUser.username} • Super Admin จัดการได้ทุกฝ่าย
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-900 text-xs sm:text-sm">
-                        Super Admin (ผู้อำนวยการ / ผู้ดูแลสูงสุด)
-                      </p>
-                      <p className="text-[11px] text-indigo-700">
-                        จัดการได้ทุกฝ่าย, เพิ่มผู้ใช้, อนุมัติผลงาน, ดูรายงานรวม
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-indigo-600 group-hover:translate-x-1 transition-transform" />
-                </button>
+                    <ArrowRight className="w-4 h-4 text-indigo-600 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                )}
 
-                {/* 5 Department Admins */}
+                {/* Department Admins */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                  {INITIAL_USERS.slice(1).map((usr) => {
+                  {deptAdmins.map((usr) => {
                     const dept = DEPARTMENTS[usr.department];
                     return (
                       <button
                         key={usr.uid}
                         id={`login-quick-${usr.username}`}
                         onClick={() => handleSelectQuickAccount(usr)}
-                        className="text-left p-2.5 rounded-xl border border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-white transition-all flex items-center justify-between group"
+                        className="text-left p-2.5 rounded-xl border border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-white transition-all flex items-center justify-between group cursor-pointer"
                       >
                         <div className="flex items-center gap-2 truncate">
                           <span 
                             className="w-2.5 h-2.5 rounded-full shrink-0" 
-                            style={{ backgroundColor: dept?.color }} 
+                            style={{ backgroundColor: dept?.color || '#2563eb' }} 
                           />
                           <div className="truncate">
                             <p className="font-semibold text-slate-800 text-xs truncate">
-                              Admin {dept?.shortName}
+                              {usr.displayName.split(' ')[0]} ({dept?.shortName || usr.role})
                             </p>
-                            <p className="text-[10px] text-slate-500 truncate">
-                              {usr.displayName.split(' ')[0]}
+                            <p className="text-[10px] text-slate-500 truncate font-mono">
+                              @{usr.username}
                             </p>
                           </div>
                         </div>
